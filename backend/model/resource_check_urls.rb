@@ -1,4 +1,4 @@
-class CheckUrls < AbstractReport
+class ResourceCheckUrls < AbstractReport
   register_report(
     params: []
   )
