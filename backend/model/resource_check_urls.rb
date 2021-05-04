@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-# require 'csv'
-# require 'uri'
-# require 'net/http'
+require 'csv'
+require 'uri'
+require 'net/http'
 
 class ResourceCheckUrls < AbstractReport
   register_report(
-    params: [run_concurrently: true]
+    params: []
   )
 
   def match_regex(text)
@@ -16,6 +16,7 @@ class ResourceCheckUrls < AbstractReport
   end
 
   def query
+    check_urls
     extref_results = db.fetch(extrefs)
     info[:total_count] = extref_results.count
     extref_results
@@ -33,22 +34,25 @@ class ResourceCheckUrls < AbstractReport
     SOME_SQL
   end
 
-  # def check_urls
-  #   notes_content = db.fetch(notes)
-  #   puts(notes_content)
-  #   notes_content.each do |result|
-  #     if result.include? 'content'
-  #       url_text = match_regex(result['content'])
-  #       # uri = URI(url_text)
-  #       # result = Net::HTTP.get_response(uri)
-  #       puts result unless (result = 200)
-  #     elsif result.include? 'subnotes'
-  #       result['subnotes'].each do |subnote|
-  #         url_text = match_regex(subnote['content']) if subnote.include? 'content'
-  #       end
-  #     end
-  #   end
-  # end
+  def check_urls
+    notes_content = db.fetch(notes)
+    puts(notes_content)
+    notes_content.each do |result|
+      if result.include? 'content'
+        url_text = match_regex(result['content'])
+        uri = URI(url_text)
+        result = Net::HTTP.get_response(uri)
+        puts result unless (result = 200)
+      elsif result.include? 'subnotes'
+        result['subnotes'].each do |subnote|
+          url_text = match_regex(subnote['content']) if subnote.include? 'content'
+          uri = URI(url_text)
+          result = Net::HTTP.get_response(uri)
+          puts result unless (result = 200)
+        end
+      end
+    end
+  end
 
   def page_break
     false
