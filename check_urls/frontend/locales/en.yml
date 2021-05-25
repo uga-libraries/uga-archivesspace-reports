@@ -1,0 +1,5 @@
+en:
+  reports:
+    check_urls:
+      title: Check URLs Report
+      description: Custom report to find URLs in notes, digital objects, and others and returns urls with error codes
