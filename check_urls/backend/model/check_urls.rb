@@ -19,13 +19,12 @@ class CheckUrls < AbstractReport
   end
 
   def query
-    write_csv('Date', 'w', 'Collection/Object', 'Note','Error Code',
-              'URL', 'Redirect?')
+    write_csv('Date', 'w', 'Collection/Object', 'Note','Error Code', 'URL', 'Redirect?')
     notes_content = db.fetch(file_versions)
     notes_content.each do |result|
       do_url = result[:file_uri]
       error_code = check_url(do_url)
-      write_csv(DateTime.now, 'a', notes_content[:title], 'Digital Object', error_code, do_url)
+      write_csv(DateTime.now, 'a', notes_content[:title], 'Digital Object', error_code, do_url) if error_code != 200
     end
     # extref_results = db.fetch(extrefs)
     # info[:total_count] = extref_results.count
@@ -62,12 +61,11 @@ class CheckUrls < AbstractReport
     begin
       uri = URI(url)
       response = Net::HTTP.get_response(uri)
-      # write_csv('report path', Date.today, 'a', )
-      log("#{response.code} - #{uri}")
+      log("#{response.code} - #{uri}") if response.code != 200
       response.code
     rescue StandardError
-      log("Error with URL: #{uri}")
-      "Error with URL: #{uri}"
+      log("Error with URL: #{url}")
+      "Error with URL: #{url}"
     end
   end
 
