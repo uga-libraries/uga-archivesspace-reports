@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'csv'
+require 'json'
 require 'uri'
 require 'net/http'
 require 'date'
@@ -13,19 +14,20 @@ class CheckUrls < AbstractReport
   def match_regex(text)
     url_regex = %r{(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))}
     if text.match url_regex
-      log(text)
-      text
+      matched_text = text.match url_regex
+      matched_text.to_s
     end
   end
 
   def query
     write_csv('Date', 'w', 'Collection/Object', 'Note','Error Code', 'URL', 'Redirect?')
-    notes_content = db.fetch(file_versions)
-    notes_content.each do |result|
-      do_url = result[:file_uri]
-      error_code = check_url(do_url)
-      write_csv(DateTime.now, 'a', notes_content[:title], 'Digital Object', error_code, do_url) if error_code != 200
-    end
+    # notes_content = db.fetch(file_versions)
+    # notes_content.each do |result|
+    #   do_url = result[:file_uri]
+    #   error_code = check_url(do_url)
+    #   write_csv(DateTime.now, 'a', notes_content[:title], 'Digital Object', error_code, do_url) if error_code != 200
+    #   end
+    grab_urls(resource_notes)
     # extref_results = db.fetch(extrefs)
     # info[:total_count] = extref_results.count
     # extref_results
@@ -34,39 +36,53 @@ class CheckUrls < AbstractReport
   def grab_urls(notes)
     notes_content = db.fetch(notes)
     notes_content.each do |result|
-      notes = result[:clean_notes]
+      notes = JSON.parse(result[:clean_notes])
       if notes['subnotes']
-        log('contains subnotes!')
-        result['subnotes'].each do |subnotes|
-          subnotes.each do |subnote|
-            if subnote['content']
-              log(subnote['content'])
-              url_text = match_regex(subnote['content'])
-              log(url_text)
+        notes['subnotes'].each do |subnotes|
+          if subnotes.is_a?(Array)
+            subnotes.each do |subnote|
+              if subnote['content']
+                url_text = match_regex(subnote['content'])
+                if url_text
+                  check_url(url_text)
+                else
+                  log('No URL found')
+                end
+              end
+            end
+          elsif subnotes['content']
+            url_text = match_regex(subnotes['content'])
+            if url_text
               check_url(url_text)
             end
           end
         end
       elsif notes['content']
-        log('contains content!')
-        log(result[:clean_notes]['content'])
-        url_text = match_regex(result[:clean_notes]['content'])
-        log(url_text)
-        check_url(url_text)
+        if notes['content'].is_a?(Array)
+          notes_combined = ''
+          notes['content'].each do |note|
+            notes_combined += "#{note} "
+          end
+          url_text = match_regex(notes_combined)
+        else
+          url_text = match_regex(notes['content'])
+        end
+        if url_text
+          check_url(url_text)
+        end
       end
     end
   end
 
   def check_url(url)
-    begin
-      uri = URI(url)
-      response = Net::HTTP.get_response(uri)
-      log("#{response.code} - #{uri}") if response.code != 200
-      response.code
-    rescue StandardError
-      log("Error with URL: #{url}")
-      "Error with URL: #{url}"
-    end
+    uri = URI(url)
+    response = Net::HTTP.get_response(uri)
+    code = response.code
+    log("#{code.to_i} - #{uri}") if code.to_i != 200
+    response.code
+  rescue StandardError
+    log("Error with URL: #{url}")
+    "Error with URL: #{url}"
   end
 
   def write_csv(start_date, mode, coll_num, note, err_code, url, redirect=None)
