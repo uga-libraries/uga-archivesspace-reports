@@ -27,62 +27,97 @@ class CheckUrls < AbstractReport
     #   error_code = check_url(do_url)
     #   write_csv(DateTime.now, 'a', notes_content[:title], 'Digital Object', error_code, do_url) if error_code != 200
     #   end
-    grab_urls(resource_notes)
+    log('Checking Resource Notes')
+    fetch_notes(resource_notes)
+    log('Checking Archival Object Notes')
+    fetch_notes(archival_object_notes)
+    log('Checking Digital Object Notes')
+    fetch_notes(digital_object_notes)
+    log('Checking Digital Object Component Notes')
+    fetch_notes(digital_object_component_notes)
+    log('Checking Agent Person Notes')
+    fetch_notes(agent_person_notes)
+    log('Checking Agent Corporate Entity Notes')
+    fetch_notes(agent_corporate_entity_notes)
+    log('Checking Agent Family Notes')
+    fetch_notes(agent_family_notes)
+    log('Checking Agent Software Notes')
+    fetch_notes(agent_software_notes)
     # extref_results = db.fetch(extrefs)
     # info[:total_count] = extref_results.count
     # extref_results
   end
 
-  def grab_urls(notes)
-    notes_content = db.fetch(notes)
+  def fetch_notes(query)
+    notes_content = db.fetch(query)
     notes_content.each do |result|
+      full_id = ''
       notes = JSON.parse(result[:clean_notes])
-      if notes['subnotes']
-        notes['subnotes'].each do |subnotes|
-          if subnotes.is_a?(Array)
-            subnotes.each do |subnote|
-              if subnote['content']
-                url_text = match_regex(subnote['content'])
-                if url_text
-                  check_url(url_text)
-                else
-                  log('No URL found')
-                end
-              end
-            end
-          elsif subnotes['content']
-            url_text = match_regex(subnotes['content'])
-            if url_text
-              check_url(url_text)
+      url, response, note_type = grab_urls(notes)
+      note_type = notes['label'] if notes['label']
+      identifier = if result[:identifier]
+                     JSON.parse(result[:identifier])
+                   elsif result[:title]
+                     result[:title]
+                   elsif result[:id]
+                     result[:id]
+                   else
+                     ''
+                   end
+      if identifier.is_a?(Array)
+        identifier.each do |id_part|
+          full_id += "#{id_part}-" unless id_part.nil?
+        end
+        identifier = full_id.chomp('-')
+      end
+      log("#{identifier},#{note_type},#{url},#{response}") if response
+    end
+  end
+
+  def grab_urls(notes)
+    if notes['content'] # trying to do recursion
+      note_type = ''
+      if notes['content'].is_a?(Array)
+        notes_combined = ''
+        notes['content'].each do |note|
+          notes_combined += "#{note} "
+        end
+        url_text = match_regex(notes_combined)
+      else
+        url_text = match_regex(notes['content'])
+      end
+      if url_text
+        url_response = check_url(url_text)
+        note_type = notes['type'] if notes['type']
+        [url_text, url_response, note_type]
+      end
+    else
+      notes.each do |key, value|
+        case value
+        when Array
+          value.each do |content|
+            if content.is_a?(Hash)
+              grab_urls(content)
             end
           end
-        end
-      elsif notes['content']
-        if notes['content'].is_a?(Array)
-          notes_combined = ''
-          notes['content'].each do |note|
-            notes_combined += "#{note} "
-          end
-          url_text = match_regex(notes_combined)
-        else
-          url_text = match_regex(notes['content'])
-        end
-        if url_text
-          check_url(url_text)
+        when Hash
+          grab_urls(value)
         end
       end
     end
   end
 
   def check_url(url)
+    response_code = ''
     uri = URI(url)
     response = Net::HTTP.get_response(uri)
-    code = response.code
-    log("#{code.to_i} - #{uri}") if code.to_i != 200
-    response.code
-  rescue StandardError
+    response_code = response.code.to_s if response.code.to_i != 200
+    # log("#{code} - #{uri}") if code.to_i != 200
+    response_code
+  rescue StandardError => response_code
     log("Error with URL: #{url}")
-    "Error with URL: #{url}"
+    response_code = "Error with URL: #{url}"
+    return response_code
   end
 
   def write_csv(start_date, mode, coll_num, note, err_code, url, redirect=None)
@@ -135,7 +170,7 @@ class CheckUrls < AbstractReport
   def agent_person_notes
     <<~SQL
       SELECT agp.id, CONVERT(notes USING utf8) as clean_notes
-      FROM note 
+      FROM note#{' '}
       JOIN agent_person AS agp on agp.id = note.agent_person_id
     SQL
   end
@@ -143,7 +178,7 @@ class CheckUrls < AbstractReport
   def agent_corporate_entity_notes
     <<~SQL
       SELECT agce.id, CONVERT(notes USING utf8) as clean_notes
-      FROM note 
+      FROM note#{' '}
       JOIN agent_corporate_entity AS agce on agce.id = note.agent_corporate_entity_id
     SQL
   end
@@ -151,7 +186,7 @@ class CheckUrls < AbstractReport
   def agent_family_notes
     <<~SQL
       SELECT agf.id, CONVERT(notes USING utf8) as clean_notes
-      FROM note 
+      FROM note#{' '}
       JOIN agent_family AS agf on agf.id = note.agent_family_id
     SQL
   end
@@ -159,7 +194,7 @@ class CheckUrls < AbstractReport
   def agent_software_notes
     <<~SQL
       SELECT ags.system_role, CONVERT(notes USING utf8) as clean_notes
-      FROM note 
+      FROM note#{' '}
       JOIN agent_software AS ags on ags.id = note.agent_software_id
     SQL
   end
