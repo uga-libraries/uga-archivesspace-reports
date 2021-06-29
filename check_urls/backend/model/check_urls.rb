@@ -21,48 +21,50 @@ class CheckUrls < AbstractReport
 
   def query
     write_csv('Date', 'w', 'Collection/Object', 'Note','Error Code', 'URL', 'Redirect?')
-    # notes_content = db.fetch(file_versions)
-    # notes_content.each do |result|
-    #   do_url = result[:file_uri]
-    #   error_code = check_url(do_url)
-    #   write_csv(DateTime.now, 'a', notes_content[:title], 'Digital Object', error_code, do_url) if error_code != 200
-    #   end
-    log('Checking Resource Notes')
-    fetch_notes(resource_notes)
-    log('Checking Archival Object Notes')
-    fetch_notes(archival_object_notes)
-    log('Checking Digital Object Notes')
-    fetch_notes(digital_object_notes)
-    log('Checking Digital Object Component Notes')
-    fetch_notes(digital_object_component_notes)
-    log('Checking Agent Person Notes')
-    fetch_notes(agent_person_notes)
-    log('Checking Agent Corporate Entity Notes')
-    fetch_notes(agent_corporate_entity_notes)
-    log('Checking Agent Family Notes')
-    fetch_notes(agent_family_notes)
-    log('Checking Agent Software Notes')
-    fetch_notes(agent_software_notes)
+    # log('Checking Digital Object File Versions')
+    # fetch_notes(file_versions, TRUE)
+    #     log(' ')
+    # log('Checking Resource Notes')
+    # fetch_notes(resource_notes)
+    # log(' ')
+    # log('Checking Archival Object Notes')
+    # fetch_notes(archival_object_notes)
+    # log(' ')
+    # log('Checking Digital Object Notes')
+    # fetch_notes(digital_object_notes)
+    # log(' ')
+    # log('Checking Digital Object Component Notes')
+    # fetch_notes(digital_object_component_notes)
+    # log(' ')
+    log('Checking Subject Scope and Contents Notes')
+    fetch_notes(subject_scope_notes)
+    # TODO: currently having problem 'not opened for reading' error with subject scope_note
+    log(' ')
+    # log('Checking Agent Person Notes')
+    # fetch_notes(agent_person_notes)
+    # log(' ')
+    # log('Checking Agent Corporate Entity Notes')
+    # fetch_notes(agent_corporate_entity_notes)
+    # log(' ')
+    # log('Checking Agent Family Notes')
+    # fetch_notes(agent_family_notes)
+    # log(' ')
+    # log('Checking Agent Software Notes')
+    # fetch_notes(agent_software_notes)
     # extref_results = db.fetch(extrefs)
     # info[:total_count] = extref_results.count
     # extref_results
   end
 
-  def fetch_notes(query)
+  def fetch_notes(query, digital_object = FALSE)
     notes_content = db.fetch(query)
     notes_content.each do |result|
+      repository = result[:repository] || 'No Repository'
       full_id = ''
-      notes = JSON.parse(result[:clean_notes])
-      url, response, note_type = grab_urls(notes)
-      note_type = notes['label'] if notes['label']
       identifier = if result[:identifier]
                      JSON.parse(result[:identifier])
                    elsif result[:title]
                      result[:title]
-                   elsif result[:id]
-                     result[:id]
-                   else
-                     ''
                    end
       if identifier.is_a?(Array)
         identifier.each do |id_part|
@@ -70,13 +72,51 @@ class CheckUrls < AbstractReport
         end
         identifier = full_id.chomp('-')
       end
-      log("#{identifier},#{note_type},#{url},#{response}") if response
+      # log(identifier)
+      if digital_object == FALSE
+        notes = JSON.parse(result[:clean_notes].to_json)
+        url, response, note_type = grab_urls(notes)
+        # log(url)
+        # log(note_type)
+        note_type = notes['label'] if notes['label']
+      else
+        identifier = result[:digital_object_id]
+        note_type = 'Digital Object File Version'
+        url = result[:file_uri]
+        response = check_url(url)
+      end
+      log("#{repository},#{identifier},#{note_type},#{url},#{response}") unless response.nil?
     end
   end
 
   def grab_urls(notes)
-    if notes['content'] # trying to do recursion
-      note_type = ''
+    url_text = nil
+    combined_text = ''
+    url_response = nil
+    log(notes)
+    if notes['subnotes']
+      notes['subnotes'].each do |subnotes|
+        if subnotes.is_a?(Hash)
+          subnotes.each do |key, value|
+            if value.is_a?(Array) && (key == 'content')
+              value.each do |content_subnote|
+                combined_text += "#{content_subnote} ".gsub('\n', '')
+              end
+              url_text = match_regex(combined_text)
+            elsif value.is_a?(String) && (key == 'content')
+              url_text = match_regex(value.gsub('\n', ''))
+            end
+          end
+        end
+      end
+      url_response = check_url(url_text) if url_text
+      note_type = if notes['type']
+                    notes['type']
+                  elsif notes['jsonmodel_type']
+                    notes['jsonmodel_type']
+                  end
+      [url_text, url_response, note_type]
+    elsif notes['content']
       if notes['content'].is_a?(Array)
         notes_combined = ''
         notes['content'].each do |note|
@@ -86,38 +126,45 @@ class CheckUrls < AbstractReport
       else
         url_text = match_regex(notes['content'])
       end
-      if url_text
-        url_response = check_url(url_text)
-        note_type = notes['type'] if notes['type']
-        [url_text, url_response, note_type]
-      end
+      url_response = check_url(url_text) if url_text
+      note_type = if notes['type']
+                    notes['type']
+                  elsif notes['jsonmodel_type']
+                    notes['jsonmodel_type']
+                  end
+      [url_text, url_response, note_type]
     else
-      notes.each do |key, value|
-        case value
-        when Array
-          value.each do |content|
-            if content.is_a?(Hash)
-              grab_urls(content)
-            end
-          end
-        when Hash
-          grab_urls(value)
+      log('no content babyyyyy')
+      if notes.is_a?(Array)
+        notes.each do |subnote|
+          combined_text += "#{subnote} "
         end
+        url_text = match_regex(combined_text)
+      else
+        url_text = match_regex(notes)
       end
+      url_response = check_url(url_text) if url_text
+      note_type = if notes['type']
+                    notes['type']
+                  elsif notes['jsonmodel_type']
+                    notes['jsonmodel_type']
+                  end
+      [url_text, url_response, note_type]
     end
   end
 
   def check_url(url)
-    response_code = ''
-    uri = URI(url)
-    response = Net::HTTP.get_response(uri)
-    response_code = response.code.to_s if response.code.to_i != 200
-    # log("#{code} - #{uri}") if code.to_i != 200
-    response_code
-  rescue StandardError => response_code
-    log("Error with URL: #{url}")
-    response_code = "Error with URL: #{url}"
-    return response_code
+    begin
+      response_code = nil
+      uri = URI(url)
+      response = Net::HTTP.get_response(uri)
+      response_code = response.code.to_s if response.code.to_i != 200
+      # log("#{code} - #{uri}") if code.to_i != 200
+    rescue StandardError
+      response_code = "Error with URL: #{url}"
+    ensure
+      response_code
+    end
   end
 
   def write_csv(start_date, mode, coll_num, note, err_code, url, redirect=None)
@@ -137,65 +184,81 @@ class CheckUrls < AbstractReport
 
   def resource_notes
     <<~SQL
-      SELECT resource.identifier, CONVERT(notes USING utf8) as clean_notes
+      SELECT repo.name as repository, resource.identifier, CONVERT(notes USING utf8) as clean_notes
       FROM note
       JOIN resource on resource.id = note.resource_id
+      JOIN repository AS repo on resource.repo_id = repo.id
     SQL
   end
 
   def archival_object_notes
     <<~SQL
-      SELECT ao.id, ao.title, CONVERT(notes USING utf8) as clean_notes
+      SELECT repo.name as repository, ao.id, ao.title, CONVERT(notes USING utf8) as clean_notes
       FROM note
       JOIN archival_object AS ao on ao.id = note.archival_object_id
+      JOIN repository AS repo on ao.repo_id = repo.id
     SQL
   end
 
   def digital_object_notes
     <<~SQL
-      SELECT do.id, do.title, CONVERT(notes USING utf8) as clean_notes
+      SELECT repo.name as repository, do.id, do.title, CONVERT(notes USING utf8) as clean_notes
       FROM note
       JOIN digital_object AS do on do.id = note.digital_object_id
+      JOIN repository AS repo on do.repo_id = repo.id
     SQL
   end
 
   def digital_object_component_notes
     <<~SQL
-      SELECT doc.id, doc.title, CONVERT(notes USING utf8) as clean_notes
+      SELECT repo.name as repository, doc.id, doc.title, CONVERT(notes USING utf8) as clean_notes
       FROM note
       JOIN digital_object_component AS doc on doc.id = note.digital_object_component_id
+      JOIN repository AS repo on doc.repo_id = repo.id
+    SQL
+  end
+
+  def subject_scope_notes
+    <<~SQL
+      SELECT subject.title, subject.id, CONVERT(subject.scope_note USING utf8) as clean_notes
+      FROM subject
+      WHERE scope_note IS NOT NULL
     SQL
   end
 
   def agent_person_notes
     <<~SQL
-      SELECT agp.id, CONVERT(notes USING utf8) as clean_notes
-      FROM note#{' '}
+      SELECT agp.id, np.sort_name as title, CONVERT(notes USING utf8) as clean_notes
+      FROM note
       JOIN agent_person AS agp on agp.id = note.agent_person_id
+      JOIN name_person AS np on agp.id = np.agent_person_id
     SQL
   end
 
   def agent_corporate_entity_notes
     <<~SQL
-      SELECT agce.id, CONVERT(notes USING utf8) as clean_notes
-      FROM note#{' '}
+      SELECT agce.id, nce.sort_name as title, CONVERT(notes USING utf8) as clean_notes
+      FROM note
       JOIN agent_corporate_entity AS agce on agce.id = note.agent_corporate_entity_id
+      JOIN name_corporate_entity AS nce on agce.id = nce.agent_corporate_entity_id
     SQL
   end
 
   def agent_family_notes
     <<~SQL
-      SELECT agf.id, CONVERT(notes USING utf8) as clean_notes
-      FROM note#{' '}
+      SELECT agf.id, nf.sort_name as title, CONVERT(notes USING utf8) as clean_notes
+      FROM note
       JOIN agent_family AS agf on agf.id = note.agent_family_id
+      JOIN name_family AS nf on agf.id = nf.agent_family_id
     SQL
   end
 
   def agent_software_notes
     <<~SQL
-      SELECT ags.system_role, CONVERT(notes USING utf8) as clean_notes
-      FROM note#{' '}
+      SELECT ags.system_role, ns.sort_name as title, CONVERT(notes USING utf8) as clean_notes
+      FROM note
       JOIN agent_software AS ags on ags.id = note.agent_software_id
+      JOIN name_software AS ns on ags.id = ns.agent_software_id
     SQL
   end
 
