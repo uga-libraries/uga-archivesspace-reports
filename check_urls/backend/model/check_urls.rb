@@ -20,43 +20,43 @@ class CheckUrls < AbstractReport
   end
 
   def query
-    write_csv('Date', 'w', 'Collection/Object', 'Note','Error Code', 'URL', 'Redirect?')
-    # log('Checking Digital Object File Versions')
-    # fetch_notes(file_versions, TRUE)
-    #     log(' ')
-    # log('Checking Resource Notes')
-    # fetch_notes(resource_notes)
-    # log(' ')
-    # log('Checking Archival Object Notes')
-    # fetch_notes(archival_object_notes)
-    # log(' ')
-    # log('Checking Digital Object Notes')
-    # fetch_notes(digital_object_notes)
-    # log(' ')
-    # log('Checking Digital Object Component Notes')
-    # fetch_notes(digital_object_component_notes)
-    # log(' ')
+    # write_csv('Date', 'w', 'Collection/Object', 'Note','Error Code', 'URL', 'Redirect?')
+    log('Checking Digital Object File Versions')
+    fetch_notes(file_versions, TRUE)
+    log(' ')
+    log('Checking Resource Notes')
+    fetch_notes(resource_notes)
+    log(' ')
+    log('Checking Archival Object Notes')
+    fetch_notes(archival_object_notes)
+    log(' ')
+    log('Checking Digital Object Notes')
+    fetch_notes(digital_object_notes)
+    log(' ')
+    log('Checking Digital Object Component Notes')
+    fetch_notes(digital_object_component_notes)
+    log(' ')
     log('Checking Subject Scope and Contents Notes')
-    fetch_notes(subject_scope_notes)
+    fetch_notes(subject_scope_notes, FALSE, TRUE)
     # TODO: currently having problem 'not opened for reading' error with subject scope_note
     log(' ')
-    # log('Checking Agent Person Notes')
-    # fetch_notes(agent_person_notes)
-    # log(' ')
-    # log('Checking Agent Corporate Entity Notes')
-    # fetch_notes(agent_corporate_entity_notes)
-    # log(' ')
-    # log('Checking Agent Family Notes')
-    # fetch_notes(agent_family_notes)
-    # log(' ')
-    # log('Checking Agent Software Notes')
-    # fetch_notes(agent_software_notes)
+    log('Checking Agent Person Notes')
+    fetch_notes(agent_person_notes)
+    log(' ')
+    log('Checking Agent Corporate Entity Notes')
+    fetch_notes(agent_corporate_entity_notes)
+    log(' ')
+    log('Checking Agent Family Notes')
+    fetch_notes(agent_family_notes)
+    log(' ')
+    log('Checking Agent Software Notes')
+    fetch_notes(agent_software_notes)
     # extref_results = db.fetch(extrefs)
     # info[:total_count] = extref_results.count
     # extref_results
   end
 
-  def fetch_notes(query, digital_object = FALSE)
+  def fetch_notes(query, digital_object = FALSE, raw_notes = FALSE)
     notes_content = db.fetch(query)
     notes_content.each do |result|
       repository = result[:repository] || 'No Repository'
@@ -73,17 +73,23 @@ class CheckUrls < AbstractReport
         identifier = full_id.chomp('-')
       end
       # log(identifier)
-      if digital_object == FALSE
+      if digital_object == TRUE
+        identifier = result[:digital_object_id]
+        note_type = 'Digital Object File Version'
+        url = result[:file_uri]
+        response = check_url(url)
+      elsif raw_notes == TRUE
         notes = JSON.parse(result[:clean_notes].to_json)
         url, response, note_type = grab_urls(notes)
         # log(url)
         # log(note_type)
         note_type = notes['label'] if notes['label']
       else
-        identifier = result[:digital_object_id]
-        note_type = 'Digital Object File Version'
-        url = result[:file_uri]
-        response = check_url(url)
+        notes = JSON.parse(result[:clean_notes])
+        url, response, note_type = grab_urls(notes)
+        # log(url)
+        # log(note_type)
+        note_type = notes['label'] if notes['label']
       end
       log("#{repository},#{identifier},#{note_type},#{url},#{response}") unless response.nil?
     end
@@ -93,11 +99,10 @@ class CheckUrls < AbstractReport
     url_text = nil
     combined_text = ''
     url_response = nil
-    log(notes)
     if notes['subnotes']
-      notes['subnotes'].each do |subnotes|
-        if subnotes.is_a?(Hash)
-          subnotes.each do |key, value|
+      notes['subnotes'].each do |subnote|
+        if subnote.is_a?(Hash)
+          subnote.each do |key, value|
             if value.is_a?(Array) && (key == 'content')
               value.each do |content_subnote|
                 combined_text += "#{content_subnote} ".gsub('\n', '')
@@ -134,7 +139,6 @@ class CheckUrls < AbstractReport
                   end
       [url_text, url_response, note_type]
     else
-      log('no content babyyyyy')
       if notes.is_a?(Array)
         notes.each do |subnote|
           combined_text += "#{subnote} "
@@ -264,9 +268,10 @@ class CheckUrls < AbstractReport
 
   def file_versions
     <<~SQL
-      SELECT file_version.file_uri, digital_object.title, digital_object.digital_object_id
+      SELECT repo.name as repository, file_version.file_uri, digital_object.title, digital_object.digital_object_id
       FROM file_version
       JOIN digital_object on digital_object.id = file_version.digital_object_id
+      JOIN repository AS repo on digital_object.repo_id = repo.id
     SQL
   end
 
