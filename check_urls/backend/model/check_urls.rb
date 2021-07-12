@@ -1,10 +1,8 @@
 # frozen_string_literal: true
 
-require 'csv'
 require 'json'
 require 'uri'
 require 'net/http'
-require 'date'
 
 class CheckUrls < AbstractReport
   register_report(
@@ -165,7 +163,6 @@ class CheckUrls < AbstractReport
       uri = URI(url)
       response = Net::HTTP.get_response(uri)
       response_code = response.code.to_s if response.code.to_i != 200
-      # log("#{code} - #{uri}") if code.to_i != 200
     rescue StandardError
       response_code = "Error with URL: #{url}"
     ensure
