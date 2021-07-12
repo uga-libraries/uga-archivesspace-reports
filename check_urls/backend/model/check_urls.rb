@@ -11,52 +11,48 @@ class CheckUrls < AbstractReport
     params: []
   )
 
-  def match_regex(text)
-    url_regex = %r{(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))}
-    if text.match url_regex
-      matched_text = text.match url_regex
-      matched_text.to_s
-    end
+  def log(s)
+    Log.debug(s)
+    @job.write_output(s)
   end
 
   def query
-    # write_csv('Date', 'w', 'Collection/Object', 'Note','Error Code', 'URL', 'Redirect?')
-    log('Checking Digital Object File Versions')
-    fetch_notes(file_versions, TRUE)
-    log(' ')
-    log('Checking Resource Notes')
-    fetch_notes(resource_notes)
-    log(' ')
-    log('Checking Archival Object Notes')
-    fetch_notes(archival_object_notes)
-    log(' ')
-    log('Checking Digital Object Notes')
-    fetch_notes(digital_object_notes)
-    log(' ')
-    log('Checking Digital Object Component Notes')
-    fetch_notes(digital_object_component_notes)
-    log(' ')
-    log('Checking Subject Scope and Contents Notes')
-    fetch_notes(subject_scope_notes, FALSE, TRUE)
-    # TODO: currently having problem 'not opened for reading' error with subject scope_note
-    log(' ')
-    log('Checking Agent Person Notes')
-    fetch_notes(agent_person_notes)
-    log(' ')
-    log('Checking Agent Corporate Entity Notes')
-    fetch_notes(agent_corporate_entity_notes)
-    log(' ')
-    log('Checking Agent Family Notes')
-    fetch_notes(agent_family_notes)
-    log(' ')
-    log('Checking Agent Software Notes')
-    fetch_notes(agent_software_notes)
-    # extref_results = db.fetch(extrefs)
-    # info[:total_count] = extref_results.count
-    # extref_results
+    results = []
+    log('Checking Digital Object File Versions...')
+    results.concat(fetch_notes(file_versions, TRUE))
+    log("Done\n\n")
+    log('Checking Resource Notes...')
+    results.concat(fetch_notes(resource_notes))
+    log("Done\n\n")
+    log('Checking Archival Object Notes...')
+    results.concat(fetch_notes(archival_object_notes))
+    log("Done\n\n")
+    log('Checking Digital Object Notes...')
+    results.concat(fetch_notes(digital_object_notes))
+    log("Done\n\n")
+    log('Checking Digital Object Component Notes...')
+    results.concat(fetch_notes(digital_object_component_notes))
+    log("Done\n\n")
+    log('Checking Subject Scope and Contents Notes...')
+    results.concat(fetch_notes(subject_scope_notes, FALSE, TRUE))
+    log("Done\n\n")
+    log('Checking Agent Person Notes...')
+    results.concat(fetch_notes(agent_person_notes))
+    log("Done\n\n")
+    log('Checking Agent Corporate Entity Notes...')
+    results.concat(fetch_notes(agent_corporate_entity_notes))
+    log("Done\n\n")
+    log('Checking Agent Family Notes...')
+    results.concat(fetch_notes(agent_family_notes))
+    log("Done\n\n")
+    log('Checking Agent Software Notes...')
+    results.concat(fetch_notes(agent_software_notes))
+    log("Done\n\n")
+    results
   end
 
   def fetch_notes(query, digital_object = FALSE, raw_notes = FALSE)
+    note_results = []
     notes_content = db.fetch(query)
     notes_content.each do |result|
       repository = result[:repository] || 'No Repository'
@@ -72,7 +68,6 @@ class CheckUrls < AbstractReport
         end
         identifier = full_id.chomp('-')
       end
-      # log(identifier)
       if digital_object == TRUE
         identifier = result[:digital_object_id]
         note_type = 'Digital Object File Version'
@@ -81,18 +76,17 @@ class CheckUrls < AbstractReport
       elsif raw_notes == TRUE
         notes = JSON.parse(result[:clean_notes].to_json)
         url, response, note_type = grab_urls(notes)
-        # log(url)
-        # log(note_type)
         note_type = notes['label'] if notes['label']
       else
         notes = JSON.parse(result[:clean_notes])
         url, response, note_type = grab_urls(notes)
-        # log(url)
-        # log(note_type)
         note_type = notes['label'] if notes['label']
       end
-      log("#{repository},#{identifier},#{note_type},#{url},#{response}") unless response.nil?
+      unless response.nil?
+        note_results << { Repository: repository, Identifier_Title: identifier, Note_Type: note_type, URL: url, Error_Code: response }
+      end
     end
+    note_results
   end
 
   def grab_urls(notes)
@@ -157,6 +151,14 @@ class CheckUrls < AbstractReport
     end
   end
 
+  def match_regex(text)
+    url_regex = %r{(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))}
+    if text.match url_regex
+      matched_text = text.match url_regex
+      matched_text.to_s
+    end
+  end
+
   def check_url(url)
     begin
       response_code = nil
@@ -169,21 +171,6 @@ class CheckUrls < AbstractReport
     ensure
       response_code
     end
-  end
-
-  def write_csv(start_date, mode, coll_num, note, err_code, url, redirect=None)
-    CSV.open('check_urls_report.csv', mode) do |row|
-      row << [start_date, coll_num, note, err_code, url, redirect]
-    end
-  end
-
-  def page_break
-    false
-  end
-
-  def log(s)
-    Log.debug(s)
-    @job.write_output(s)
   end
 
   def resource_notes
