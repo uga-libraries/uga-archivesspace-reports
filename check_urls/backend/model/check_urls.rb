@@ -81,6 +81,7 @@ class CheckUrls < AbstractReport
         note_type = notes['label'] if notes['label']
       end
       unless response.nil?
+        log("#{repository}, #{identifier}, #{note_type}, #{url}, #{response}")
         note_results << { Repository: repository, Identifier_Title: identifier, Note_Type: note_type, URL: url, Error_Code: response }
       end
     end
