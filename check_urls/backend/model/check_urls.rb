@@ -70,7 +70,7 @@ class CheckUrls < AbstractReport
         identifier = result[:digital_object_id]
         note_type = 'Digital Object File Version'
         url = result[:file_uri]
-        response = check_url(url)
+        response = check_url(url, url)
       elsif raw_notes == TRUE
         notes = JSON.parse(result[:clean_notes].to_json)
         url, response, note_type = grab_urls(notes)
@@ -107,7 +107,7 @@ class CheckUrls < AbstractReport
           end
         end
       end
-      url_response = check_url(url_text) if url_text
+      url_response = check_url(url_text, url_text) if url_text
       note_type = if notes['type']
                     notes['type']
                   elsif notes['jsonmodel_type']
@@ -124,7 +124,7 @@ class CheckUrls < AbstractReport
       else
         url_text = match_regex(notes['content'])
       end
-      url_response = check_url(url_text) if url_text
+      url_response = check_url(url_text, url_text) if url_text
       note_type = if notes['type']
                     notes['type']
                   elsif notes['jsonmodel_type']
@@ -140,7 +140,7 @@ class CheckUrls < AbstractReport
       else
         url_text = match_regex(notes)
       end
-      url_response = check_url(url_text) if url_text
+      url_response = check_url(url_text, url_text) if url_text
       note_type = if notes['type']
                     notes['type']
                   elsif notes['jsonmodel_type']
@@ -158,14 +158,27 @@ class CheckUrls < AbstractReport
     end
   end
 
-  def check_url(url)
+  def check_url(url, original_url, limit = 5)
     begin
       response_code = nil
-      uri = URI(url)
-      response = Net::HTTP.get_response(uri)
-      response_code = response.code.to_s if response.code.to_i != 200
-    rescue StandardError
-      response_code = "Error with URL: #{url}"
+      if limit.zero?
+        uri = URI(original_url)
+        response = Net::HTTP.get_response(uri)
+        response_code = response.code.to_s
+      else
+        uri = URI(url)
+        response = Net::HTTP.get_response(uri)
+        case response
+        when Net::HTTPRedirection
+          location = response['location']
+          log("Following redirect #{location}")
+          check_url(location, original_url, limit - 1)
+        else
+          response_code = response.code.to_s if response.code.to_i != 200
+        end
+      end
+    rescue StandardError => e
+      response_code = e.message.to_s
     ensure
       response_code
     end
