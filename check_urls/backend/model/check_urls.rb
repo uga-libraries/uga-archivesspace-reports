@@ -17,7 +17,7 @@ class CheckUrls < AbstractReport
   def query
     results = []
     log('Checking Digital Object File Versions...')
-    results.concat(fetch_notes(file_versions, TRUE))
+    results.concat(fetch_notes(file_versions, TRUE, FALSE, FALSE))
     log("Done\n\n")
     log('Checking Resource Notes...')
     results.concat(fetch_notes(resource_notes))
@@ -32,7 +32,7 @@ class CheckUrls < AbstractReport
     results.concat(fetch_notes(digital_object_component_notes))
     log("Done\n\n")
     log('Checking Subject Scope and Contents Notes...')
-    results.concat(fetch_notes(subject_scope_notes, FALSE, TRUE))
+    results.concat(fetch_notes(subject_scope_notes, FALSE, TRUE, FALSE))
     log("Done\n\n")
     log('Checking Agent Person Notes...')
     results.concat(fetch_notes(agent_person_notes))
@@ -46,10 +46,16 @@ class CheckUrls < AbstractReport
     log('Checking Agent Software Notes...')
     results.concat(fetch_notes(agent_software_notes))
     log("Done\n\n")
+    log('Checking Archival Object Titles...')
+    results.concat(fetch_notes(archival_object_titles, FALSE, FALSE, TRUE))
+    log("Done\n\n")
+    log('Checking Resource Titles...')
+    results.concat(fetch_notes(resource_titles, FALSE, FALSE, TRUE))
+    log("Done\n\n")
     results
   end
 
-  def fetch_notes(query, digital_object = FALSE, raw_notes = FALSE)
+  def fetch_notes(query, digital_object = FALSE, raw_notes = FALSE, check_title = FALSE)
     note_results = []
     notes_content = db.fetch(query)
     notes_content.each do |result|
@@ -59,6 +65,8 @@ class CheckUrls < AbstractReport
                      JSON.parse(result[:identifier])
                    elsif result[:title]
                      result[:title]
+                   elsif result[:ref_id]
+                     result[:ref_id]
                    end
       if identifier.is_a?(Array)
         identifier.each do |id_part|
@@ -75,6 +83,12 @@ class CheckUrls < AbstractReport
         notes = JSON.parse(result[:clean_notes].to_json)
         url, response, note_type = grab_urls(notes)
         note_type = notes['label'] if notes['label']
+      elsif check_title == TRUE
+        if result[:object_title]  # check for not nil
+          notes = result[:object_title]
+          url, response, note_type = grab_urls(notes)
+          note_type = 'Title'
+        end
       else
         notes = JSON.parse(result[:clean_notes])
         url, response, note_type = grab_urls(notes)
@@ -270,6 +284,22 @@ class CheckUrls < AbstractReport
       FROM file_version
       JOIN digital_object on digital_object.id = file_version.digital_object_id
       JOIN repository AS repo on digital_object.repo_id = repo.id
+    SQL
+  end
+
+  def archival_object_titles
+    <<~SQL
+      SELECT repo.name as repository, archival_object.ref_id, archival_object.title as object_title
+      FROM archival_object
+      JOIN repository AS repo on archival_object.repo_id = repo.id
+    SQL
+  end
+
+  def resource_titles
+    <<~SQL
+      SELECT repo.name as repository, resource.identifier, resource.title as object_title
+      FROM resource
+      JOIN repository AS repo on resource.repo_id = repo.id
     SQL
   end
 
