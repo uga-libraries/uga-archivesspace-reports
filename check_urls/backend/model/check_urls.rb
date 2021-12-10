@@ -46,12 +46,12 @@ class CheckUrls < AbstractReport
     log('Checking Agent Software Notes...')
     results.concat(fetch_notes(agent_software_notes))
     log("Done\n\n")
-    log('Checking Archival Object Titles...')
-    results.concat(fetch_notes(archival_object_titles, FALSE, FALSE, TRUE))
-    log("Done\n\n")
-    log('Checking Resource Titles...')
-    results.concat(fetch_notes(resource_titles, FALSE, FALSE, TRUE))
-    log("Done\n\n")
+    # log('Checking Archival Object Titles...')
+    # results.concat(fetch_notes(archival_object_titles, FALSE, FALSE, TRUE))
+    # log("Done\n\n")
+    # log('Checking Resource Titles...')
+    # results.concat(fetch_notes(resource_titles, FALSE, FALSE, TRUE))
+    # log("Done\n\n")
     results
   end
 
