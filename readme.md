@@ -8,7 +8,7 @@ requests (404, 500, etc.). Redirected links check the destination URL for errors
 
 ## Dependencies
 
-###check_urls
+### check_urls
 - [json](https://ruby-doc.org/stdlib-2.6.3/libdoc/json/rdoc/JSON.html) - Used to parse the JSON data found in notes
 - [uri](https://ruby-doc.org/core-3.1.2/Gem/Uri.html) - Used to handle URLs
 - [Net::HTTP](https://ruby-doc.org/stdlib-3.0.1/libdoc/net/http/rdoc/Net/HTTP.html) - Used to make HTTP requests and 
