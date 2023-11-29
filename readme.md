@@ -1,12 +1,14 @@
-# Overview
+# UGA ArchivesSpace Reports
+
+## Overview
 A collection of custom reports built for UGA's ArchivesSpace instance. The following reports are:
 
 - **check_urls** - A custom report to capture URLs in notes and digital object file versions and check them for bad 
 requests (404, 500, etc.). Redirected links check the destination URL for errors.
 
-# Getting Started
+## Getting Started
 
-## Dependencies
+### Dependencies
 
 ### check_urls
 - [json](https://ruby-doc.org/stdlib-2.6.3/libdoc/json/rdoc/JSON.html) - Used to parse the JSON data found in notes
@@ -14,11 +16,10 @@ requests (404, 500, etc.). Redirected links check the destination URL for errors
 - [Net::HTTP](https://ruby-doc.org/stdlib-3.0.1/libdoc/net/http/rdoc/Net/HTTP.html) - Used to make HTTP requests and 
 return any errors from broken URLs
 
-## Installation
+### Installation
+Download the files in this repo by clicking on the Code box in the top right corner and selecting Download ZIP. 
 
-Download the files in this repo by clicking on the Code box in the top right corner and selecting Download ZIP.
-
-Move the downloaded ZIP folder to your ArchivesSpace's plugins path:
+Move the downloaded ZIP folder to your ArchivesSpace's plugins path: 
 
     /path/to/archivesspace/plugins
 
@@ -30,12 +31,11 @@ Unzip it:
 Enable the plugin by editing the file in `config/config.rb`:
 
     AppConfig[:plugins] = ['some_plugin', 'uga-archivesspace-reports-main']
+    
+    Make sure you uncomment this line (i.e., remove the leading '#' if present))
 
-(Make sure you uncomment this line (i.e., remove the leading '#' if present))
-
-For more information on installing and making plugins:
-
-https://github.com/archivesspace/tech-docs/blob/master/customization/plugins.md
+For more information on installing and making plugins, see 
+[ArchivesSpace's Technical Documentation on Plugins](https://github.com/archivesspace/tech-docs/blob/master/customization/plugins.md)
 
 ### check_urls
 
